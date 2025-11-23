@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gem Matcher Pro - Earn Rewards!</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        .gem {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            cursor: pointer;
+            border-radius: 0.75rem;
+            transition: all 0.2s ease;
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px solid rgba(51, 65, 85, 0.8);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .gem:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .gem.selected {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
+        
+        .gem.clearing {
+            animation: clear 0.3s ease-out;
+        }
+        
+        @keyframes clear {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(0); }
+        }
+        
+        .board-container {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 0.5rem;
+            max-width: 600px;
+            aspect-ratio: 1;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 1rem;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        
+        .cell {
+            aspect-ratio: 1;
+            position: relative;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .ad-banner {
+            background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        
+        @media (max-width: 640px) {
+            .gem {
+                font-size: 1.5rem;
+            }
+            .board-container {
+                gap: 0.25rem;
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+    <!-- Ad Banner Placeholder -->
+    <div id="adBanner" class="ad-banner">
+        📢 Remove Ads for Premium Experience! Tap Shop → Remove Ads
+    </div>
+
+    <!-- Main Game Container -->
+    <div class="flex-1 flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl">
+            <!-- Header -->
+            <div class="text-center mb-4">
+                <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">💎 Gem Matcher Pro 💎</h1>
+                <p class="text-gray-400 text-sm">Level <span id="level">1</span> • Match gems to earn coins!</p>
+            </div>
+            
+            <!-- Stats Bar -->
+            <div class="bg-slate-800/80 rounded-xl p-3 mb-4 shadow-xl border-2 border-slate-700">
+                <div class="grid grid-cols-4 gap-2 text-center text-xs md:text-sm">
+                    <div>
+                        <div class="text-gray-400 mb-1">Score</div>
+                        <div id="score" class="text-lg md:text-xl font-bold text-blue-400">0</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400 mb-1">Coins 🪙</div>
+                        <div id="coins" class="text-lg md:text-xl font-bold text-yellow-400">0</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400 mb-1">High Score</div>
+                        <div id="highScore" class="text-lg md:text-xl font-bold text-purple-400">0</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400 mb-1">Streak 🔥</div>
+                        <div id="streak" class="text-lg md:text-xl font-bold text-orange-400">0</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Power-ups Bar -->
+            <div class="bg-slate-800/80 rounded-xl p-3 mb-4 shadow-xl border-2 border-slate-700">
+                <div class="flex justify-around items-center">
+                    <button onclick="usePowerUp('bomb')" class="flex flex-col items-center p-2 hover:bg-slate-700 rounded-lg transition">
+                        <span class="text-2xl">💣</span>
+                        <span class="text-xs text-gray-400 mt-1" id="bombCount">0</span>
+                    </button>
+                    <button onclick="usePowerUp('color')" class="flex flex-col items-center p-2 hover:bg-slate-700 rounded-lg transition">
+                        <span class="text-2xl">🌈</span>
+                        <span class="text-xs text-gray-400 mt-1" id="colorCount">0</span>
+                    </button>
+                    <button onclick="usePowerUp('shuffle')" class="flex flex-col items-center p-2 hover:bg-slate-700 rounded-lg transition">
+                        <span class="text-2xl">🔀</span>
+                        <span class="text-xs text-gray-400 mt-1" id="shuffleCount">0</span>
+                    </button>
+                    <button onclick="openShop()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                        🛒 Shop
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Game Board -->
+            <div id="board" class="board-container mx-auto mb-4"></div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-2 justify-center">
+                <button onclick="showDailyReward()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                    🎁 Daily Reward
+                </button>
+                <button onclick="showAchievements()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                    🏆 Achievements
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shopModal" class="modal">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-md w-full border-4 border-purple-500">
+            <h2 class="text-3xl font-bold text-white mb-4 text-center">🛒 Shop</h2>
+            <div class="space-y-3 max-h-96 overflow-y-auto">
+                <!-- Remove Ads -->
+                <div class="bg-slate-700 p-4 rounded-lg border-2 border-green-500">
+                    <div class="flex justify-between items-center mb-2">
+                        <div>
+                            <h3 class="font-bold text-white">🚫 Remove Ads</h3>
+                            <p class="text-xs text-gray-400">Enjoy ad-free gaming!</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-yellow-400 font-bold">₹49</div>
+                            <button onclick="purchaseItem('removeAds', 49)" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs mt-1">
+                                Buy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Power-up Packs -->
+                <div class="bg-slate-700 p-4 rounded-lg">
+                    <h3 class="font-bold text-white mb-2">💎 Power-up Packs</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">5 Bombs 💣</span>
+                            <button onclick="buyPowerUp('bomb', 5, 50)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
+                                50 🪙
+                            </button>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">5 Color Blast 🌈</span>
+                            <button onclick="buyPowerUp('color', 5, 75)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
+                                75 🪙
+                            </button>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">5 Shuffle 🔀</span>
+                            <button onclick="buyPowerUp('shuffle', 5, 40)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
+                                40 🪙
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Coin Packs -->
+                <div class="bg-slate-700 p-4 rounded-lg">
+                    <h3 class="font-bold text-white mb-2">🪙 Coin Packs</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">100 Coins</span>
+                            <button onclick="purchaseItem('coins100', 29)" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-xs">
+                                ₹29
+                            </button>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">500 Coins</span>
+                            <button onclick="purchaseItem('coins500', 99)" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-xs">
+                                ₹99
+                            </button>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">1000 Coins</span>
+                            <button onclick="purchaseItem('coins1000', 149)" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-xs">
+                                ₹149
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="closeShop()" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-bold">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Daily Reward Modal -->
+    <div id="dailyRewardModal" class="modal">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-md w-full border-4 border-yellow-500 text-center">
+            <h2 class="text-3xl font-bold text-white mb-4">🎁 Daily Reward</h2>
+            <div id="dailyRewardContent"></div>
+            <button onclick="closeDailyReward()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold">
+                Awesome!
+            </button>
+        </div>
+    </div>
+
+    <!-- Achievements Modal -->
+    <div id="achievementsModal" class="modal">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-md w-full border-4 border-purple-500">
+            <h2 class="text-3xl font-bold text-white mb-4 text-center">🏆 Achievements</h2>
+            <div class="space-y-3 max-h-96 overflow-y-auto" id="achievementsList"></div>
+            <button onclick="closeAchievements()" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-bold">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const BOARD_SIZE = 8;
+        const GEM_TYPES = ["🔴", "🟡", "🟢", "🟣", "💎"];
+        const POINTS_PER_GEM = 10;
+        const COINS_PER_100_SCORE = 1;
+        
+        // Game State
+        let board = [];
+        let score = 0;
+        let coins = 0;
+        let highScore = 0;
+        let level = 1;
+        let streak = 0;
+        let selectedGem = null;
+        let powerUps = {
+            bomb: 0,
+            color: 0,
+            shuffle: 0
+        };
+        let activePowerUp = null;
+        let adsRemoved = false;
+        
+        // Achievements
+        const achievements = [
+            { id: 'first_match', name: 'First Match', desc: 'Make your first match', reward: 10, unlocked: false },
+            { id: 'score_100', name: 'Century', desc: 'Reach 100 score', reward: 20, unlocked: false },
+            { id: 'score_500', name: 'Expert', desc: 'Reach 500 score', reward: 50, unlocked: false },
+            { id: 'score_1000', name: 'Master', desc: 'Reach 1000 score', reward: 100, unlocked: false },
+            { id: 'streak_5', name: 'On Fire', desc: 'Get 5 match streak', reward: 30, unlocked: false },
+            { id: 'streak_10', name: 'Unstoppable', desc: 'Get 10 match streak', reward: 75, unlocked: false }
+        ];
+        
+        // Initialize game
+        function initGame() {
+            board = generateBoard();
+            loadGameData();
+            updateUI();
+            renderBoard();
+            checkDailyReward();
+        }
+        
+        // Generate valid starting board
+        function generateBoard() {
+            let attempts = 0;
+            let newBoard;
+            do {
+                newBoard = [];
+                for (let row = 0; row < BOARD_SIZE; row++) {
+                    newBoard[row] = [];
+                    for (let col = 0; col < BOARD_SIZE; col++) {
+                        newBoard[row][col] = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
+                    }
+                }
+                attempts++;
+            } while (hasMatches(newBoard) && attempts < 100);
+            return newBoard;
+        }
+        
+        // Check if board has matches
+        function hasMatches(boardToCheck) {
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE - 2; col++) {
+                    const gem = boardToCheck[row][col];
+                    if (gem && gem === boardToCheck[row][col + 1] && gem === boardToCheck[row][col + 2]) {
+                        return true;
+                    }
+                }
+            }
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                for (let row = 0; row < BOARD_SIZE - 2; row++) {
+                    const gem = boardToCheck[row][col];
+                    if (gem && gem === boardToCheck[row + 1][col] && gem === boardToCheck[row + 2][col]) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        
+        // Render board
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    const gem = document.createElement('div');
+                    gem.className = 'gem';
+                    gem.textContent = board[row][col];
+                    gem.dataset.row = row;
+                    gem.dataset.col = col;
+                    gem.onclick = () => handleGemClick(row, col);
+                    cell.appendChild(gem);
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+        
+        // Handle gem click
+        function handleGemClick(row, col) {
+            if (activePowerUp === 'bomb') {
+                useBombAt(row, col);
+                return;
+            }
+            if (activePowerUp === 'color') {
+                useColorBlastAt(row, col);
+                return;
+            }
+            
+            const clickedGem = { row, col };
+            if (!selectedGem) {
+                selectedGem = clickedGem;
+                updateGemSelection();
+            } else {
+                if (isAdjacent(selectedGem, clickedGem)) {
+                    attemptSwap(selectedGem, clickedGem);
+                } else {
+                    selectedGem = clickedGem;
+                    updateGemSelection();
+                }
+            }
+        }
+        
+        // Check if gems are adjacent
+        function isAdjacent(gem1, gem2) {
+            const rowDiff = Math.abs(gem1.row - gem2.row);
+            const colDiff = Math.abs(gem1.col - gem2.col);
+            return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+        }
+        
+        // Attempt swap
+        async function attemptSwap(gem1, gem2) {
+            swapGems(gem1, gem2);
+            renderBoard();
+            await sleep(200);
+            const matches = findMatches();
+            if (matches.length > 0) {
+                streak++;
+                await processMatches();
+                selectedGem = null;
+                updateGemSelection();
+            } else {
+                swapGems(gem1, gem2);
+                selectedGem = null;
+                streak = 0;
+                renderBoard();
+                updateGemSelection();
+            }
+            updateUI();
+        }
+        
+        // Swap gems
+        function swapGems(gem1, gem2) {
+            const temp = board[gem1.row][gem1.col];
+            board[gem1.row][gem1.col] = board[gem2.row][gem2.col];
+            board[gem2.row][gem2.col] = temp;
+        }
+        
+        // Find matches
+        function findMatches() {
+            const matches = new Set();
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE - 2; col++) {
+                    const gem = board[row][col];
+                    if (gem && gem === board[row][col + 1] && gem === board[row][col + 2]) {
+                        matches.add(`${row},${col}`);
+                        matches.add(`${row},${col + 1}`);
+                        matches.add(`${row},${col + 2}`);
+                        let extraCol = col + 3;
+                        while (extraCol < BOARD_SIZE && board[row][extraCol] === gem) {
+                            matches.add(`${row},${extraCol}`);
+                            extraCol++;
+                        }
+                    }
+                }
+            }
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                for (let row = 0; row < BOARD_SIZE - 2; row++) {
+                    const gem = board[row][col];
+                    if (gem && gem === board[row + 1][col] && gem === board[row + 2][col]) {
+                        matches.add(`${row},${col}`);
+                        matches.add(`${row + 1},${col}`);
+                        matches.add(`${row + 2},${col}`);
+                        let extraRow = row + 3;
+                        while (extraRow < BOARD_SIZE && board[extraRow][col] === gem) {
+                            matches.add(`${extraRow},${col}`);
+                            extraRow++;
+                        }
+                    }
+                }
+            }
+            return Array.from(matches).map(pos => {
+                const [row, col] = pos.split(',').map(Number);
+                return { row, col };
+            });
+        }
+        
+        // Process matches
+        async function processMatches() {
+            let matches = findMatches();
+            while (matches.length > 0) {
+                const pointsEarned = matches.length * POINTS_PER_GEM * (1 + streak * 0.1);
+                score += Math.floor(pointsEarned);
+                coins += Math.floor(score / 100 * COINS_PER_100_SCORE);
+                if (score > highScore) {
+                    highScore = score;
+                    saveGameData();
+                }
+                checkAchievements();
+                matches.forEach(match => {
+                    const gemEl = document.querySelector(`[data-row="${match.row}"][data-col="${match.col}"]`);
+                    if (gemEl) gemEl.classList.add('clearing');
+                });
+                await sleep(300);
+                matches.forEach(match => {
+                    board[match.row][match.col] = null;
+                });
+                applyGravity();
+                refillBoard();
+                renderBoard();
+                updateUI();
+                await sleep(300);
+                matches = findMatches();
+            }
+            level = Math.floor(score / 500) + 1;
+        }
+        
+        // Apply gravity
+        function applyGravity() {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                let writeRow = BOARD_SIZE - 1;
+                for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+                    if (board[row][col] !== null) {
+                        if (row !== writeRow) {
+                            board[writeRow][col] = board[row][col];
+                            board[row][col] = null;
+                        }
+                        writeRow--;
+                    }
+                }
+            }
+        }
+        
+        // Refill board
+        function refillBoard() {
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    if (board[row][col] === null) {
+                        board[row][col] = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
+                    }
+                }
+            }
+        }
+        
+        // Update gem selection
+        function updateGemSelection() {
+            document.querySelectorAll('.gem').forEach(gem => {
+                gem.classList.remove('selected');
+            });
+            if (selectedGem) {
+                const gemEl = document.querySelector(`[data-row="${selectedGem.row}"][data-col="${selectedGem.col}"]`);
+                if (gemEl) gemEl.classList.add('selected');
+            }
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('coins').textContent = coins;
+            document.getElementById('highScore').textContent = highScore;
+            document.getElementById('level').textContent = level;
+            document.getElementById('streak').textContent = streak;
+            document.getElementById('bombCount').textContent = powerUps.bomb;
+            document.getElementById('colorCount').textContent = powerUps.color;
+            document.getElementById('shuffleCount').textContent = powerUps.shuffle;
+        }
+        
+        // Power-ups
+        function usePowerUp(type) {
+            if (powerUps[type] > 0) {
+                activePowerUp = type;
+                alert(`${type === 'bomb' ? '💣 Bomb' : type === 'color' ? '🌈 Color Blast' : '🔀 Shuffle'} activated! ${type === 'shuffle' ? 'Board will shuffle now.' : 'Tap a gem to use it.'}`);
+                if (type === 'shuffle') {
+                    board = generateBoard();
+                    renderBoard();
+                    powerUps.shuffle--;
+                    activePowerUp = null;
+                    updateUI();
+                }
+            } else {
+                alert('No ' + type + ' power-ups! Buy some in the shop.');
+            }
+        }
+        
+        function useBombAt(row, col) {
+            const toRemove = [];
+            for (let r = Math.max(0, row - 1); r <= Math.min(BOARD_SIZE - 1, row + 1); r++) {
+                for (let c = Math.max(0, col - 1); c <= Math.min(BOARD_SIZE - 1, col + 1); c++) {
+                    toRemove.push({ row: r, col: c });
+                    board[r][c] = null;
+                }
+            }
+            powerUps.bomb--;
+            activePowerUp = null;
+            applyGravity();
+            refillBoard();
+            renderBoard();
+            updateUI();
+        }
+        
+        function useColorBlastAt(row, col) {
+            const color = board[row][col];
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] === color) {
+                        board[r][c] = null;
+                    }
+                }
+            }
+            powerUps.color--;
+            activePowerUp = null;
+            applyGravity();
+            refillBoard();
+            renderBoard();
+            updateUI();
+        }
+        
+        // Shop functions
+        function openShop() {
+            document.getElementById('shopModal').classList.add('active');
+        }
+        
+        function closeShop() {
+            document.getElementById('shopModal').classList.remove('active');
+        }
+        
+        function purchaseItem(item, price) {
+            alert(`In a real app, this would open payment gateway for ₹${price}.\n\nFor demo: Item "${item}" added!`);
+            if (item === 'removeAds') {
+                adsRemoved = true;
+                document.getElementById('adBanner').style.display = 'none';
+                saveGameData();
+            } else if (item.startsWith('coins')) {
+                const amount = parseInt(item.replace('coins', ''));
+                coins += amount;
+                updateUI();
+                saveGameData();
+            }
+        }
+        
+        function buyPowerUp(type, amount, cost) {
+            if (coins >= cost) {
+                coins -= cost;
+                powerUps[type] += amount;
+                updateUI();
+                saveGameData();
+                alert(`Purchased ${amount} ${type} power-ups!`);
+            } else {
+                alert('Not enough coins! Buy coin packs or keep playing to earn more.');
+            }
+        }
+        
+        // Daily Reward
+        function checkDailyReward() {
+            const lastClaim = localStorage.getItem('lastDailyReward');
+            const today = new Date().toDateString();
+            if (lastClaim !== today) {
+                const dailyStreak = parseInt(localStorage.getItem('dailyStreak') || '0');
+                const newStreak = (lastClaim === new Date(Date.now() - 86400000).toDateString()) ? dailyStreak + 1 : 1;
+                localStorage.setItem('dailyStreak', newStreak.toString());
+            }
+        }
+        
+        function showDailyReward() {
+            const lastClaim = localStorage.getItem('lastDailyReward');
+            const today = new Date().toDateString();
+            const dailyStreak = parseInt(localStorage.getItem('dailyStreak') || '0');
+            
+            if (lastClaim === today) {
+                document.getElementById('dailyRewardContent').innerHTML = `
+                    <p class="text-gray-400 mb-4">You've already claimed today's reward!</p>
+                    <p class="text-white">Come back tomorrow for more rewards!</p>
+                    <p class="text-yellow-400 mt-2">Current streak: ${dailyStreak} days 🔥</p>
+                `;
+            } else {
+                const reward = 20 + (dailyStreak * 5);
+                coins += reward;
+                powerUps.bomb++;
+                localStorage.setItem('lastDailyReward', today);
+                saveGameData();
+                updateUI();
+                document.getElementById('dailyRewardContent').innerHTML = `
+                    <p class="text-2xl mb-4">🎉 Daily Reward Claimed! 🎉</p>
+                    <p class="text-yellow-400 text-xl">+${reward} Coins 🪙</p>
+                    <p class="text-blue-400">+1 Bomb 💣</p>
+                    <p class="text-orange-400 mt-3">Streak: ${dailyStreak} days 🔥</p>
+                `;
+            }
+            document.getElementById('dailyRewardModal').classList.add('active');
+        }
+        
+        function closeDailyReward() {
+            document.getElementById('dailyRewardModal').classList.remove('active');
+        }
+        
+        // Achievements
+        function checkAchievements() {
+            achievements.forEach(achievement => {
+                if (!achievement.unlocked) {
+                    let unlock = false;
+                    if (achievement.id === 'first_match' && score > 0) unlock = true;
+                    if (achievement.id === 'score_100' && score >= 100) unlock = true;
+                    if (achievement.id === 'score_500' && score >= 500) unlock = true;
+                    if (achievement.id === 'score_1000' && score >= 1000) unlock = true;
+                    if (achievement.id === 'streak_5' && streak >= 5) unlock = true;
+                    if (achievement.id === 'streak_10' && streak >= 10) unlock = true;
+                    
+                    if (unlock) {
+                        achievement.unlocked = true;
+                        coins += achievement.reward;
+                        alert(`🏆 Achievement Unlocked!\n${achievement.name}\n+${achievement.reward} Coins!`);
+                        saveGameData();
+                    }
+                }
+            });
+        }
+        
+        function showAchievements() {
+            const list = document.getElementById('achievementsList');
+            list.innerHTML = achievements.map(a => `
+                <div class="bg-slate-700 p-3 rounded-lg ${a.unlocked ? 'border-2 border-green-500' : 'opacity-60'}">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold text-white">${a.unlocked ? '✅' : '🔒'} ${a.name}</h3>
+                            <p class="text-xs text-gray-400">${a.desc}</p>
+                        </div>
+                        <div class="text-yellow-400 text-sm">+${a.reward} 🪙</div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('achievementsModal').classList.add('active');
+        }
+        
+        function closeAchievements() {
+            document.getElementById('achievementsModal').classList.remove('active');
+        }
+        
+        // Save/Load
+        function saveGameData() {
+            localStorage.setItem('gemMatcherPro', JSON.stringify({
+                highScore, coins, powerUps, adsRemoved,
+                achievements: achievements.map(a => ({ id: a.id, unlocked: a.unlocked }))
+            }));
+        }
+        
+        function loadGameData() {
+            const saved = localStorage.getItem('gemMatcherPro');
+            if (saved) {
+                const data = JSON.parse(saved);
+                highScore = data.highScore || 0;
+                coins = data.coins || 0;
+                powerUps = data.powerUps || { bomb: 0, color: 0, shuffle: 0 };
+                adsRemoved = data.adsRemoved || false;
+                if (adsRemoved) document.getElementById('adBanner').style.display = 'none';
+                if (data.achievements) {
+                    data.achievements.forEach(saved => {
+                        const achievement = achievements.find(a => a.id === saved.id);
+                        if (achievement) achievement.unlocked = saved.unlocked;
+                    });
+                }
+            }
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // Start game
+        initGame();
+    </script>
+</body>
+</html>
